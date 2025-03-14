@@ -10,23 +10,27 @@ namespace API.Controllers
     public class ProductController : ControllerBase
     {
         private readonly IProductRepository _productRepository;
+        private readonly IGenericRepository<Product> _repository;
 
-        public ProductController(IProductRepository productRepository)
+        public ProductController(IProductRepository productRepository, IGenericRepository<Product> repository)  
         {
             _productRepository = productRepository;
+            _repository = repository;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            var products = await _productRepository.GetAllAsync();
+            //var products = await _productRepository.GetAllAsync();
+            IReadOnlyList<Product> products = await _repository.GetAllAsync();
             return Ok(products);
         }
 
         [HttpGet("{id:int}")]
         public async Task<ActionResult<Product>> GetProductById(int id)
         {
-            var product = await _productRepository.GetByIdAsync(id);
+            //var product = await _productRepository.GetByIdAsync(id);
+            Product product = await _repository.GetByIdAsync(id);
             return product == null ? NotFound() : Ok(product);
         }
 
@@ -38,9 +42,10 @@ namespace API.Controllers
                 return BadRequest(ModelState);
             }
 
-            await _productRepository.AddAsync(addProduct);
+            //await _productRepository.AddAsync(addProduct);
+            await _repository.Add(addProduct);
 
-            if (await _productRepository.SaveChangesAsync() > 0)
+            if (await _repository.SaveAllAsync())
             {
                 return CreatedAtAction(nameof(GetProductById), new { id = addProduct.Id }, addProduct);
             }
@@ -58,14 +63,15 @@ namespace API.Controllers
                 return BadRequest("Product ID mismatch.");
             }
 
-            if (!await ProductExists(id))
+            if (!ProductExists(id))
             {
                 return NotFound($"No Data found for the given Id {id}");
             }
 
-            _productRepository.Update(product);
+            //_productRepository.Update(product);
+            await _repository.Update(product);
 
-            if (await _productRepository.SaveChangesAsync() > 0)
+            if (await _repository.SaveAllAsync())
             {
                 return NoContent();
             }
@@ -78,12 +84,14 @@ namespace API.Controllers
         {
             if (id <= 0) return BadRequest("Invalid Product Id.");
 
-            var product = await _productRepository.GetByIdAsync(id);
+            //var product = await _productRepository.GetByIdAsync(id);
+            Product product = await _repository.GetByIdAsync(id);
             if (product == null) return NotFound("Product not found.");
 
-            _productRepository.Delete(product);
+           // _productRepository.Delete(product);
+           await _repository.Remove(product);
 
-            if (await _productRepository.SaveChangesAsync() > 0)
+            if (await _repository.SaveAllAsync())
             {
                 return Ok("Product removed successfully.");
             }
@@ -109,9 +117,10 @@ namespace API.Controllers
             return Ok(await _productRepository.GetProductsAsync(brand, type, sort ?? "Name"));
         }
 
-        private async Task<bool> ProductExists(int id)
+        private bool ProductExists(int id)
         {
-            return await _productRepository.ExistsAsync(id);
+            //return await _productRepository.ExistsAsync(id);
+            return _repository.Exists(id);
         }
     }
 }
